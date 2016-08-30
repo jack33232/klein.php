@@ -578,8 +578,14 @@ class Klein
                                     break;
                                 case DispatchHaltedException::SKIP_NEXT:
                                     $skip_num = $e->getNumberOfSkips();
+                                    if ($path !== '*') {
+                                        $count_match && $matched->add($route);
+                                    }
                                     break;
                                 case DispatchHaltedException::SKIP_REMAINING:
+                                    if ($path !== '*') {
+                                        $count_match && $matched->add($route);
+                                    }
                                     break 2;
                                 default:
                                     throw $e;
