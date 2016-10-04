@@ -12,7 +12,7 @@
 namespace Klein;
 
 use Klein\DataCollection\DataCollection;
-use Klien\DataCollection\RequestDataCollection;
+use Klein\DataCollection\RequestDataCollection;
 use Klein\DataCollection\HeaderDataCollection;
 use Klein\DataCollection\ServerDataCollection;
 
@@ -115,9 +115,9 @@ class Request
         $body = null
     ) {
         // Assignment city...
-        $this->params_get   = new RequestDataCollection($params_get);
-        $this->params_post  = new RequestDataCollection($params_post);
-        $this->cookies      = new RequestDataCollection($cookies);
+        $this->params_get   = new  \Klien\DataCollection\RequestDataCollection($params_get);
+        $this->params_post  = new  \Klien\DataCollection\RequestDataCollection($params_post);
+        $this->cookies      = new  \Klien\DataCollection\RequestDataCollection($cookies);
         $this->server       = new ServerDataCollection($server);
         $this->headers      = new HeaderDataCollection($this->server->getHeaders());
         $this->files        = new DataCollection($files);

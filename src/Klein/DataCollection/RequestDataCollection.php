@@ -33,28 +33,31 @@ class RequestDataCollection extends DataCollection
     public function all($mask = null, $fill_with_nulls = true)
     {
         $args = func_get_args();
-        $rawData = call_user_func_array('parent::all', $args);
+        $requestData = call_user_func_array('parent::all', $args);
 
         if (!empty($this->filters)) {
-            return filter_var_array($rawData, $this->filters, $fill_with_nulls);
-        } else {
-            return $rawData;
+            foreach ($requestData as $key => $value) {
+                if (isset($this->filters[$key])) {
+                    $requestData[$key] = $this->doFilter($value, $this->filters[$key]);
+                }
+            }
         }
+        return $requestData;
     }
 
     public function get($key, $default_val = null)
     {
         $args = func_get_args();
-        $rawData = call_user_func_array('parent::get', $args);
+        $requestData = call_user_func_array('parent::get', $args);
 
         if (!empty($this->filters) && isset($this->filters[$key])) {
-            return $this->filter($rawData, $this->filters[$key]);
+            return $this->doFilter($requestData, $this->filters[$key]);
         } else {
-            return $rawData;
+            return $requestData;
         }
     }
 
-    protected function filter($rawData, $filter)
+    protected function doFilter($rawData, $filter)
     {
         if (is_array($filter)) {
             if (!key_exists('filter', $filter)) {
@@ -64,7 +67,7 @@ class RequestDataCollection extends DataCollection
             unset($filter['filter']);
             $options = $filter;
 
-            return filter_var($rawData, $filter, $options);
+            return filter_var($rawData, $filterVal, $options);
         } else {
             return filter_var($rawData, $filter);
         }
