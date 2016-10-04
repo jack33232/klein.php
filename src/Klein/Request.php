@@ -12,6 +12,7 @@
 namespace Klein;
 
 use Klein\DataCollection\DataCollection;
+use Klien\DataCollection\RequestDataCollection;
 use Klein\DataCollection\HeaderDataCollection;
 use Klein\DataCollection\ServerDataCollection;
 
@@ -114,9 +115,9 @@ class Request
         $body = null
     ) {
         // Assignment city...
-        $this->params_get   = new DataCollection($params_get);
-        $this->params_post  = new DataCollection($params_post);
-        $this->cookies      = new DataCollection($cookies);
+        $this->params_get   = new RequestDataCollection($params_get);
+        $this->params_post  = new RequestDataCollection($params_post);
+        $this->cookies      = new RequestDataCollection($cookies);
         $this->server       = new ServerDataCollection($server);
         $this->headers      = new HeaderDataCollection($this->server->getHeaders());
         $this->files        = new DataCollection($files);
@@ -169,20 +170,26 @@ class Request
     /**
      * Returns the GET parameters collection
      *
-     * @return \Klein\DataCollection\DataCollection
+     * @return \Klein\DataCollection\RequestDataCollection
      */
-    public function paramsGet()
+    public function paramsGet($filters = array())
     {
+        if (!empty($filters)) {
+            $this->params_get->setFilter($filters);
+        }
         return $this->params_get;
     }
 
     /**
      * Returns the POST parameters collection
      *
-     * @return \Klein\DataCollection\DataCollection
+     * @return \Klein\DataCollection\RequestDataCollection
      */
-    public function paramsPost()
+    public function paramsPost($filters = array())
     {
+        if (!empty($filters)) {
+            $this->params_post->setFilter($filters);
+        }
         return $this->params_post;
     }
 
@@ -199,10 +206,13 @@ class Request
     /**
      * Returns the cookies collection
      *
-     * @return \Klein\DataCollection\DataCollection
+     * @return \Klein\DataCollection\RequestDataCollection
      */
-    public function cookies()
+    public function cookies($filters = array())
     {
+        if (!empty($filters)) {
+            $this->params_post->setFilter($filters);
+        }
         return $this->cookies;
     }
 
