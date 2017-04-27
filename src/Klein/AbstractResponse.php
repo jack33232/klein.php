@@ -5,7 +5,7 @@
  * @author      Chris O'Hara <cohara87@gmail.com>
  * @author      Trevor Suarez (Rican7) (contributor and v2 refactorer)
  * @copyright   (c) Chris O'Hara
- * @link        https://github.com/chriso/klein.php
+ * @link        https://github.com/klein/klein.php
  * @license     MIT
  */
 
@@ -391,7 +391,7 @@ abstract class AbstractResponse
      * @throws ResponseAlreadySentException If the response has already been sent
      * @return AbstractResponse
      */
-    public function send($override = false, $noMoreData = true)
+    public function send($override = false)
     {
         if ($this->sent && !$override) {
             throw new ResponseAlreadySentException('Response has already been sent');
@@ -408,7 +408,7 @@ abstract class AbstractResponse
         $this->sent = true;
 
         // If there running FPM, tell the process manager to finish the server request/response handling
-        if (function_exists('fastcgi_finish_request') && $noMoreData) {
+        if (function_exists('fastcgi_finish_request')) {
             fastcgi_finish_request();
         }
 
@@ -428,7 +428,7 @@ abstract class AbstractResponse
     /**
      * Enable response chunking
      *
-     * @link https://github.com/chriso/klein.php/wiki/Response-Chunking
+     * @link https://github.com/klein/klein.php/wiki/Response-Chunking
      * @link http://bit.ly/hg3gHb
      * @return AbstractResponse
      */
