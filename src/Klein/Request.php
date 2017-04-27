@@ -390,7 +390,24 @@ class Request
      */
     public function ip()
     {
-        return $this->server->get('REMOTE_ADDR');
+        $ip = false;
+        if (!empty($_SERVER["HTTP_CLIENT_IP"])) {
+            $ip = $_SERVER["HTTP_CLIENT_IP"];
+        }
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ips = explode(", ", $_SERVER['HTTP_X_FORWARDED_FOR']);
+            if ($ip) {
+                array_unshift($ips, $ip);
+                $ip = false;
+            }
+            for ($i = 0; $i < count($ips); $i++) {
+                if (!eregi("^(10|172\.16|192\.168)\.", $ips[$i])) {
+                    $ip = $ips[$i];
+                    break;
+                }
+            }
+        }
+        return($ip ? $ip : $_SERVER['REMOTE_ADDR']);
     }
 
     /**
@@ -437,9 +454,9 @@ class Request
      * $request->method('post') // returns true
      * $request->method('get') // returns false
      * </code>
-     * 
-     * @param string $is				The method to check the current request method against
-     * @param boolean $allow_override	Whether or not to allow HTTP method overriding via header or params
+     *
+     * @param string $is The method to check the current request method against
+     * @param boolean $allow_override Whether or not to allow HTTP method overriding via header or params
      * @return string|boolean
      */
     public function method($is = null, $allow_override = true)
