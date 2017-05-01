@@ -400,6 +400,356 @@ class Klein
     }
 
     /**
+     * Depart dispatch & route match
+     * Only try to
+     * 1. get the matched route with respective named params
+     * @param Request $request
+     * @param Boolean $remove_unmatch Remove the unmatched route object
+     * @return array
+     */
+
+    public function routeMatch(
+        Request $request = null,
+        $remove_unmatch = true
+    ) {
+        // Set/Initialize our objects to be sent in each callback
+        $this->request = $request ?: Request::createFromGlobals();
+        $this->response = $response ?: new Response();
+
+        // Bind our objects to our service
+        $this->service->bind($this->request, $this->response);
+
+        // Prepare any named routes
+        $this->routes->prepareNamed();
+
+
+        // Grab some data from the request
+        $uri = $this->request->pathname();
+        $req_method = $this->request->method();
+
+        // Set up some variables for matching
+        $skip_num = 0;
+        $matched = $this->routes->cloneEmpty(); // Get a clone of the routes collection, as it may have been injected
+        $methods_matched = array();
+        $matched_pairs = [];
+        $params = array();
+        $apcu = function_exists('apcu_fetch');
+
+        // Start output buffering
+        ob_start();
+        $this->output_buffer_level = ob_get_level();
+
+        try {
+            foreach ($this->routes as $route_name => $route) {
+                // Are we skipping any matches?
+                if ($skip_num > 0) {
+                    $skip_num--;
+                    continue;
+                }
+
+                // Grab the properties of the route handler
+                $method = $route->getMethod();
+                $path = $route->getPath();
+                $count_match = $route->getCountMatch();
+
+                // Keep track of whether this specific request method was matched
+                $method_match = null;
+
+                // Was a method specified? If so, check it against the current request method
+                if (is_array($method)) {
+                    foreach ($method as $test) {
+                        if (strcasecmp($req_method, $test) === 0) {
+                            $method_match = true;
+                        } elseif (strcasecmp($req_method, 'HEAD') === 0
+                            && (strcasecmp($test, 'HEAD') === 0 || strcasecmp($test, 'GET') === 0)) {
+                            // Test for HEAD request (like GET)
+                            $method_match = true;
+                        }
+                    }
+
+                    if (null === $method_match) {
+                        $method_match = false;
+                    }
+                } elseif (null !== $method && strcasecmp($req_method, $method) !== 0) {
+                    $method_match = false;
+
+                    // Test for HEAD request (like GET)
+                    if (strcasecmp($req_method, 'HEAD') === 0
+                        && (strcasecmp($method, 'HEAD') === 0 || strcasecmp($method, 'GET') === 0 )) {
+                        $method_match = true;
+                    }
+                } elseif (null !== $method && strcasecmp($req_method, $method) === 0) {
+                    $method_match = true;
+                }
+
+                // If the method was matched or if it wasn't even passed (in the route callback)
+                $possible_match = (null === $method_match) || $method_match;
+
+                // ! is used to negate a match
+                if (isset($path[0]) && $path[0] === '!') {
+                    $negate = true;
+                    $i = 1;
+                } else {
+                    $negate = false;
+                    $i = 0;
+                }
+
+                // Check for a wildcard (match all)
+                if ($path === '*') {
+                    $match = true;
+                } elseif (isset($path[$i]) && $path[$i] === '@') {
+                    // @ is used to specify custom regex
+                    $match = preg_match('`' . substr($path, $i + 1) . '`', $uri, $params);
+                } else {
+                    // Compiling and matching regular expressions is relatively
+                    // expensive, so try and match by a substring first
+
+                    $expression = null;
+                    $regex = false;
+                    $j = 0;
+                    $n = isset($path[$i]) ? $path[$i] : null;
+
+                    // Find the longest non-regex substring and match it against the URI
+                    while (true) {
+                        if (!isset($path[$i])) {
+                            break;
+                        } elseif (false === $regex) {
+                            $c = $n;
+                            $regex = $c === '[' || $c === '(' || $c === '.';
+                            if (false === $regex && false !== isset($path[$i+1])) {
+                                $n = $path[$i + 1];
+                                $regex = $n === '?' || $n === '+' || $n === '*' || $n === '{';
+                            }
+                            if (false === $regex && $c !== '/' && (!isset($uri[$j]) || $c !== $uri[$j])) {
+                                continue 2;
+                            }
+                            $j++;
+                        }
+                        $expression .= $path[$i++];
+                    }
+
+                    try {
+                        // Check if there's a cached regex string
+                        if (false !== $apcu) {
+                            $regex = apcu_fetch("route:$expression");
+                            if (false === $regex) {
+                                $regex = $this->compileRoute($expression);
+                                apcu_store("route:$expression", $regex);
+                            }
+                        } else {
+                            $regex = $this->compileRoute($expression);
+                        }
+                    } catch (RegularExpressionCompilationException $e) {
+                        throw RoutePathCompilationException::createFromRoute($route, $e);
+                    }
+
+                    $match = preg_match($regex, $uri, $params);
+                }
+
+                if (isset($match) && $match ^ $negate) {
+                    if ($possible_match) {
+                        $matched_pair = ['params' => null, 'route' => $route, 'route_name' => $route_name];
+                        if (!empty($params)) {
+                            /**
+                             * URL Decode the params according to RFC 3986
+                             * @link http://www.faqs.org/rfcs/rfc3986
+                             *
+                             * Decode here AFTER matching as per @chriso's suggestion
+                             * @link https://github.com/klein/klein.php/issues/117#issuecomment-21093915
+                             */
+                            $params = array_map('rawurldecode', $params);
+                            $matched_pair['params'] = $params;
+                            //$this->request->paramsNamed()->merge($params);
+                        }
+
+                        $matched_pairs[] = $matched_pair;
+
+                        if ($path !== '*') {
+                            $count_match && $matched->add($route);
+                        }
+                    }
+
+                    // Don't bother counting this as a method match if the route isn't supposed to match anyway
+                    if ($count_match) {
+                        // Keep track of possibly matched methods
+                        $methods_matched = array_merge($methods_matched, (array) $method);
+                        $methods_matched = array_filter($methods_matched);
+                        $methods_matched = array_unique($methods_matched);
+                    }
+                }
+
+                if ($remove_unmatch) {
+                    $this->routes->remove($route_name);
+                }
+            }
+
+            // Handle our 404/405 conditions
+            if ($matched->isEmpty() && count($methods_matched) > 0) {
+                // Add our methods to our allow header
+                $this->response->header('Allow', implode(', ', $methods_matched));
+
+                if (strcasecmp($req_method, 'OPTIONS') !== 0) {
+                    throw HttpException::createFromCode(405);
+                }
+            } elseif ($matched->isEmpty()) {
+                throw HttpException::createFromCode(404);
+            }
+        } catch (HttpExceptionInterface $e) {
+            // Grab our original response lock state
+            $locked = $this->response->isLocked();
+
+            // Call our http error handlers
+            $this->httpError($e, $matched, $methods_matched);
+
+            // Make sure we return our response to its original lock state
+            if (!$locked) {
+                $this->response->unlock();
+            }
+        } catch (Throwable $e) { // PHP 7 compatibility
+            $this->error($e);
+        } catch (Exception $e) { // TODO: Remove this catch block once PHP 5.x support is no longer necessary.
+            $this->error($e);
+        }
+
+        return ['matched_pairs' => $matched_pairs, 'matched' => $matched, 'methods_matched' => $methods_matched];
+    }
+
+    public function lazyDispatch(
+        $matched_paris,
+        RouteCollection $matched,
+        array $methods_matched,
+        AbstractResponse $response = null,
+        $send_response = true,
+        $capture = self::DISPATCH_NO_CAPTURE
+    ) {
+        // Set/Initialize our objects to be sent in each callback
+        $this->response = $response ?: new Response();
+
+        // Start output buffering
+        ob_start();
+        $this->output_buffer_level = ob_get_level();
+
+        try {
+            foreach ($matched_paris as $matched_pair) {
+                // Are we skipping any matches?
+                if ($skip_num > 0) {
+                    $skip_num--;
+                    continue;
+                }
+                $route = $matched_pair['route'];
+                $params = $matched_pair['params'];
+                $route_name = $matched_pair['route_name'];
+                // Grab the properties of the route handler
+                $path = $route->getPath();
+                $count_match = $route->getCountMatch();
+
+
+                if (!empty($params)) {
+                    $this->request->paramsNamed()->merge($params);
+                }
+
+                // Handle our response callback
+                try {
+                    $this->handleRouteCallback($route, $matched, $methods_matched);
+                } catch (DispatchHaltedException $e) {
+                    switch ($e->getCode()) {
+                        case DispatchHaltedException::SKIP_THIS:
+                            if ($path !== '*') {
+                                $count_match && $matched->remove($route_name);
+                            }
+                            continue 2;
+                            break;
+                        case DispatchHaltedException::SKIP_NEXT:
+                            $skip_num = $e->getNumberOfSkips();
+                            break;
+                        case DispatchHaltedException::SKIP_REMAINING:
+                            break 2;
+                        default:
+                            throw $e;
+                    }
+                }
+            }
+
+            if ($matched->isEmpty()) {
+                throw HttpException::createFromCode(404);
+            }
+        } catch (HttpExceptionInterface $e) {
+            // Grab our original response lock state
+            $locked = $this->response->isLocked();
+
+            // Call our http error handlers
+            $this->httpError($e, $matched, $methods_matched);
+
+            // Make sure we return our response to its original lock state
+            if (!$locked) {
+                $this->response->unlock();
+            }
+        } catch (Throwable $e) { // PHP 7 compatibility
+            $this->error($e);
+        } catch (Exception $e) { // TODO: Remove this catch block once PHP 5.x support is no longer necessary.
+            $this->error($e);
+        }
+
+        try {
+            if ($this->response->chunked) {
+                $this->response->chunk();
+            } else {
+                // Output capturing behavior
+                switch ($capture) {
+                    case self::DISPATCH_CAPTURE_AND_RETURN:
+                        $buffed_content = null;
+                        while (ob_get_level() >= $this->output_buffer_level) {
+                            $buffed_content = ob_get_clean();
+                        }
+                        return $buffed_content;
+                        break;
+                    case self::DISPATCH_CAPTURE_AND_REPLACE:
+                        while (ob_get_level() >= $this->output_buffer_level) {
+                            $this->response->body(ob_get_clean());
+                        }
+                        break;
+                    case self::DISPATCH_CAPTURE_AND_PREPEND:
+                        while (ob_get_level() >= $this->output_buffer_level) {
+                            $this->response->prepend(ob_get_clean());
+                        }
+                        break;
+                    case self::DISPATCH_CAPTURE_AND_APPEND:
+                        while (ob_get_level() >= $this->output_buffer_level) {
+                            $this->response->append(ob_get_clean());
+                        }
+                        break;
+                    default:
+                        // If not a handled capture strategy, default to no capture
+                        $capture = self::DISPATCH_NO_CAPTURE;
+                }
+            }
+
+            // Test for HEAD request (like GET)
+            if (strcasecmp($req_method, 'HEAD') === 0) {
+                // HEAD requests shouldn't return a body
+                $this->response->body('');
+
+                while (ob_get_level() >= $this->output_buffer_level) {
+                    ob_end_clean();
+                }
+            } elseif (self::DISPATCH_NO_CAPTURE === $capture) {
+                while (ob_get_level() >= $this->output_buffer_level) {
+                    ob_end_flush();
+                }
+            }
+        } catch (LockedResponseException $e) {
+            // Do nothing, since this is an automated behavior
+        }
+
+        // Run our after dispatch callbacks
+        $this->callAfterDispatchCallbacks();
+
+        if ($send_response && !$this->response->isSent()) {
+            $this->response->send();
+        }
+    }
+
+    /**
      * Dispatch the request to the appropriate route(s)
      *
      * Dispatch with optionally injected dependencies
@@ -437,7 +787,7 @@ class Klein
         $matched = $this->routes->cloneEmpty(); // Get a clone of the routes collection, as it may have been injected
         $methods_matched = array();
         $params = array();
-        $apc = function_exists('apc_fetch');
+        $apcu = function_exists('apcu_fetch');
 
         // Start output buffering
         ob_start();
@@ -552,11 +902,11 @@ class Klein
 
                     try {
                         // Check if there's a cached regex string
-                        if (false !== $apc) {
-                            $regex = apc_fetch("route:$expression");
+                        if (false !== $apcu) {
+                            $regex = apcu_fetch("route:$expression");
                             if (false === $regex) {
                                 $regex = $this->compileRoute($expression);
-                                apc_store("route:$expression", $regex);
+                                apcu_store("route:$expression", $regex);
                             }
                         } else {
                             $regex = $this->compileRoute($expression);

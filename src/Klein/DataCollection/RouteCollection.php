@@ -85,6 +85,15 @@ class RouteCollection extends DataCollection
         return $this->set($name, $route);
     }
 
+    public function removeRoute(Route $route)
+    {
+        $name = spl_object_hash($route);
+
+        if ($this->exists($name)) {
+            $this->remove($name);
+        }
+    }
+
     /**
      * Add a route to the collection
      *
