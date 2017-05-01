@@ -625,7 +625,8 @@ class Klein
     ) {
         // Set/Initialize our objects to be sent in each callback
         $this->response = $response ?: new Response();
-
+        $skip_num = 0;
+        $req_method = $this->request->method();
         // Start output buffering
         ob_start();
         $this->output_buffer_level = ob_get_level();
