@@ -410,6 +410,7 @@ class Klein
 
     public function routeMatch(
         Request $request = null,
+        AbstractResponse $response = null,
         $remove_unmatch = true
     ) {
         // Set/Initialize our objects to be sent in each callback
