@@ -568,6 +568,8 @@ class Klein
                         if ($path !== '*') {
                             $count_match && $matched->add($route);
                         }
+                    } elseif ($remove_unmatch) {
+                        $this->routes->remove($route_name);
                     }
 
                     // Don't bother counting this as a method match if the route isn't supposed to match anyway
@@ -577,10 +579,6 @@ class Klein
                         $methods_matched = array_filter($methods_matched);
                         $methods_matched = array_unique($methods_matched);
                     }
-                }
-
-                if ($remove_unmatch) {
-                    $this->routes->remove($route_name);
                 }
             }
 
