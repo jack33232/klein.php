@@ -568,8 +568,6 @@ class Klein
                         if ($path !== '*') {
                             $count_match && $matched->add($route);
                         }
-                    } elseif ($remove_unmatch) {
-                        $this->routes->remove($route_name);
                     }
 
                     // Don't bother counting this as a method match if the route isn't supposed to match anyway
@@ -581,7 +579,9 @@ class Klein
                     }
                 }
             }
-
+            if ($remove_unmatch) {
+                $this->routes = $matched;
+            }
             // Handle our 404/405 conditions
             if ($matched->isEmpty() && count($methods_matched) > 0) {
                 // Add our methods to our allow header
