@@ -582,28 +582,6 @@ class Klein
             if ($remove_unmatch) {
                 $this->routes = $matched;
             }
-            // Handle our 404/405 conditions
-            if ($matched->isEmpty() && count($methods_matched) > 0) {
-                // Add our methods to our allow header
-                $this->response->header('Allow', implode(', ', $methods_matched));
-
-                if (strcasecmp($req_method, 'OPTIONS') !== 0) {
-                    throw HttpException::createFromCode(405);
-                }
-            } elseif ($matched->isEmpty()) {
-                throw HttpException::createFromCode(404);
-            }
-        } catch (HttpExceptionInterface $e) {
-            // Grab our original response lock state
-            $locked = $this->response->isLocked();
-
-            // Call our http error handlers
-            $this->httpError($e, $matched, $methods_matched);
-
-            // Make sure we return our response to its original lock state
-            if (!$locked) {
-                $this->response->unlock();
-            }
         } catch (Throwable $e) { // PHP 7 compatibility
             $this->error($e);
         } catch (Exception $e) { // TODO: Remove this catch block once PHP 5.x support is no longer necessary.
@@ -670,7 +648,15 @@ class Klein
                 }
             }
 
-            if ($matched->isEmpty()) {
+            // Handle our 404/405 conditions
+            if ($matched->isEmpty() && count($methods_matched) > 0) {
+                // Add our methods to our allow header
+                $this->response->header('Allow', implode(', ', $methods_matched));
+
+                if (strcasecmp($req_method, 'OPTIONS') !== 0) {
+                    throw HttpException::createFromCode(405);
+                }
+            } elseif ($matched->isEmpty()) {
                 throw HttpException::createFromCode(404);
             }
         } catch (HttpExceptionInterface $e) {
