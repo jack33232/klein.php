@@ -14,6 +14,7 @@ namespace Klein;
 use Klein\DataCollection\DataCollection;
 use Klein\DataCollection\HeaderDataCollection;
 use Klein\DataCollection\ServerDataCollection;
+use Klein\DataCollection\FileDataCollection;
 
 /**
  * Request
@@ -119,7 +120,7 @@ class Request
         $this->cookies      = new DataCollection($cookies);
         $this->server       = new ServerDataCollection($server);
         $this->headers      = new HeaderDataCollection($this->server->getHeaders());
-        $this->files        = new DataCollection($files);
+        $this->files        = new FileDataCollection($files);
         $this->body         = $body ? (string) $body : null;
 
         // Non-injected assignments
