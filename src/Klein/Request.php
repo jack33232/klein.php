@@ -403,7 +403,7 @@ class Request
 
     public function isAjax()
     {
-        return (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') ? true : (($_GET['ajax'] === 1) ? true : false);
+        return (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') ? true : (isset($_GET['ajax']) && ($_GET['ajax'] === 1) ? true : false);
     }
 
     /**
