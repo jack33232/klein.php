@@ -401,6 +401,11 @@ class Request
         return($ip ? $ip : $_SERVER['REMOTE_ADDR']);
     }
 
+    public function isAjax()
+    {
+        return (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') ? true : (($_GET['ajax'] === 1) ? true : false);
+    }
+
     /**
      * Gets the request user agent
      *
@@ -446,8 +451,8 @@ class Request
      * $request->method('get') // returns false
      * </code>
      *
-     * @param string $is				The method to check the current request method against
-     * @param boolean $allow_override	Whether or not to allow HTTP method overriding via header or params
+     * @param string $is    The method to check the current request method against
+     * @param boolean $allow_override   Whether or not to allow HTTP method overriding via header or params
      * @return string|boolean
      */
     public function method($is = null, $allow_override = true)
