@@ -242,13 +242,26 @@ class Klein
         return $this->routes;
     }
 
+    public function resetRoutes(RouteCollection $routes = null)
+    {
+        if (is_null($routes) && $this->routes->isEmpty()) {
+            return;
+        }
+        $this->routes = (is_null($routes)) ? new RouteCollection() : $routes;
+    }
+
     /**
      * Returns the request object
      *
      * @return Request
      */
-    public function request()
+    public function request(Request $request = null)
     {
+        if (is_null($this->request) && is_null($request)) {
+            $this->request = Request::createFromGlobals();
+        } elseif (!is_null($request)) {
+            $this->request = $request;
+        }
         return $this->request;
     }
 
@@ -414,7 +427,7 @@ class Klein
         $remove_unmatch = true
     ) {
         // Set/Initialize our objects to be sent in each callback
-        $this->request = $request ?: Request::createFromGlobals();
+        $this->request($request);
         $this->response = $response ?: new Response();
 
         // Bind our objects to our service
@@ -1225,7 +1238,8 @@ class Klein
             $this->app,
             $this, // Pass the Klein instance
             $matched,
-            $methods_matched
+            $methods_matched,
+            $route
         );
 
         if ($returned instanceof AbstractResponse) {
