@@ -25,10 +25,10 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  */
 class FileDataCollection extends DataCollection
 {
-    public function getObj($name)
+    public function getObj($name, $default = null)
     {
         if (!$this->exists($name)) {
-            return null;
+            return $default;
         }
 
         $request_file = $this->get($name);
@@ -55,5 +55,19 @@ class FileDataCollection extends DataCollection
                 $request_file['error']
             );
         }
+    }
+
+    public function allObj($mask = null, $fill_with_nulls = true)
+    {
+        $request_files = $this->all($mask, $fill_with_nulls);
+        foreach ($request_files as $name => $request_file) {
+            if (is_null($request_file)) {
+                continue;
+            }
+
+            $request_files[$name] = $this->getObj($name);
+        }
+
+        return $request_files;
     }
 }
