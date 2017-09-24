@@ -1,6 +1,6 @@
 {
-   "name": "klein/klein",
-   "description": "A lightning fast router for PHP",
+   "name": "jack33232/klein",
+   "description": "A lightning fast router for PHP forked by jack33232 & add new features",
    "keywords": ["router", "routing", "sinatra", "boilerplate"],
    "homepage": "https://github.com/klein/klein.php",
    "license": "MIT",
