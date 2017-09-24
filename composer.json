@@ -1,8 +1,8 @@
 {
-   "name": "klein/klein",
-   "description": "A lightning fast router for PHP",
+   "name": "jack33232/klein",
+   "description": "A lightning fast router for PHP forked by jack33232 & add new features",
    "keywords": ["router", "routing", "sinatra", "boilerplate"],
-   "homepage": "https://github.com/chriso/klein.php",
+   "homepage": "https://github.com/klein/klein.php",
    "license": "MIT",
    "authors": [
       {
@@ -14,16 +14,17 @@
       {
          "name": "Trevor Suarez",
          "email": "rican7@gmail.com",
-         "homepage": "http://about.me/tnsuarez",
+         "homepage": "https://trevorsuarez.com/",
          "role": "Contributor/Developer"
       }
    ],
    "require": {
-      "php": ">=5.3.0"
+      "php": ">=5.3.0",
+      "symfony/http-foundation": "2.8.*|3.0.*"
    },
    "require-dev": {
-      "phpunit/phpunit": "4.1.x",
-      "phpunit/php-code-coverage": "2.x",
+      "phpunit/phpunit": "^4.8",
+      "phpunit/php-code-coverage": "^2.2",
       "squizlabs/php_codesniffer": "1.4.8"
    },
    "autoload": {

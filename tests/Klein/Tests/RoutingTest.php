@@ -5,12 +5,13 @@
  * @author      Chris O'Hara <cohara87@gmail.com>
  * @author      Trevor Suarez (Rican7) (contributor and v2 refactorer)
  * @copyright   (c) Chris O'Hara
- * @link        https://github.com/chriso/klein.php
+ * @link        https://github.com/klein/klein.php
  * @license     MIT
  */
 
 namespace Klein\Tests;
 
+use Exception;
 use Klein\App;
 use Klein\DataCollection\RouteCollection;
 use Klein\Exceptions\DispatchHaltedException;
@@ -113,20 +114,20 @@ class RoutingTest extends AbstractKleinTest
 
         $this->klein_app->respond(
             '/',
-            function ($r, $r, $s, $a) {
-                $a->state = 'a';
+            function ($request, $response, $service, $app) {
+                $app->state = 'a';
             }
         );
         $this->klein_app->respond(
             '/',
-            function ($r, $r, $s, $a) {
-                $a->state .= 'b';
+            function ($request, $response, $service, $app) {
+                $app->state .= 'b';
             }
         );
         $this->klein_app->respond(
             '/',
-            function ($r, $r, $s, $a) {
-                print $a->state;
+            function ($request, $response, $service, $app) {
+                print $app->state;
             }
         );
 
@@ -586,12 +587,14 @@ class RoutingTest extends AbstractKleinTest
 
     public function testParamsIntegerSuccess()
     {
-        $this->expectOutputString("string(3) \"987\"\n");
+        $this->expectOutputString("string(3) \"987\"");
 
         $this->klein_app->respond(
             '/[i:age]',
             function ($request) {
-                var_dump($request->param('age'));
+                $age = $request->param('age');
+
+                printf('%s(%d) "%s"', gettype($age), strlen($age), $age);
             }
         );
 
@@ -615,7 +618,7 @@ class RoutingTest extends AbstractKleinTest
         $this->klein_app->respond(
             '/[i:age]',
             function ($request) {
-                var_dump($request->param('age'));
+                echo $request->param('age');
             }
         );
 
@@ -2259,7 +2262,7 @@ class RoutingTest extends AbstractKleinTest
             $this->klein_app->dispatch(
                 MockRequestFactory::create('/users/1738197/friends/7828316')
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $exception = $e->getPrevious();
         }
 

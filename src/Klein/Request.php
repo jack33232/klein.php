@@ -5,7 +5,7 @@
  * @author      Chris O'Hara <cohara87@gmail.com>
  * @author      Trevor Suarez (Rican7) (contributor and v2 refactorer)
  * @copyright   (c) Chris O'Hara
- * @link        https://github.com/chriso/klein.php
+ * @link        https://github.com/klein/klein.php
  * @license     MIT
  */
 
@@ -14,6 +14,7 @@ namespace Klein;
 use Klein\DataCollection\DataCollection;
 use Klein\DataCollection\HeaderDataCollection;
 use Klein\DataCollection\ServerDataCollection;
+use Klein\DataCollection\FileDataCollection;
 
 /**
  * Request
@@ -119,7 +120,7 @@ class Request
         $this->cookies      = new DataCollection($cookies);
         $this->server       = new ServerDataCollection($server);
         $this->headers      = new HeaderDataCollection($this->server->getHeaders());
-        $this->files        = new DataCollection($files);
+        $this->files        = new FileDataCollection($files);
         $this->body         = $body ? (string) $body : null;
 
         // Non-injected assignments
@@ -290,7 +291,7 @@ class Request
      *
      * @param string $key       The name of the parameter to return
      * @param mixed $default    The default value of the parameter if it contains no value
-     * @return string
+     * @return mixed
      */
     public function param($key, $default = null)
     {
@@ -324,7 +325,7 @@ class Request
      * while treating it as an instance property
      *
      * @param string $param     The name of the parameter
-     * @return string
+     * @return mixed
      */
     public function __get($param)
     {
@@ -380,7 +381,29 @@ class Request
      */
     public function ip()
     {
-        return $this->server->get('REMOTE_ADDR');
+        $ip = false;
+        if (!empty($_SERVER["HTTP_CLIENT_IP"])) {
+            $ip = $_SERVER["HTTP_CLIENT_IP"];
+        }
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ips = explode(", ", $_SERVER['HTTP_X_FORWARDED_FOR']);
+            if ($ip) {
+                array_unshift($ips, $ip);
+                $ip = false;
+            }
+            for ($i = 0; $i < count($ips); $i++) {
+                if (!preg_match("/^(10|172\.16|192\.168)\./i", $ips[$i])) {
+                    $ip = $ips[$i];
+                    break;
+                }
+            }
+        }
+        return($ip ? $ip : $_SERVER['REMOTE_ADDR']);
+    }
+
+    public function isAjax()
+    {
+        return (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') ? true : (isset($_GET['ajax']) && ($_GET['ajax'] === 1) ? true : false);
     }
 
     /**
@@ -428,8 +451,8 @@ class Request
      * $request->method('get') // returns false
      * </code>
      *
-     * @param string $is				The method to check the current request method against
-     * @param boolean $allow_override	Whether or not to allow HTTP method overriding via header or params
+     * @param string $is    The method to check the current request method against
+     * @param boolean $allow_override   Whether or not to allow HTTP method overriding via header or params
      * @return string|boolean
      */
     public function method($is = null, $allow_override = true)
